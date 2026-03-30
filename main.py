@@ -1,7 +1,8 @@
 from argparse import ArgumentParser
 from typing import List, Optional, Sequence
 import requests
-
+import xml.etree.ElementTree as ET
+import html
 
 class UnhandledException(Exception):
     pass
@@ -15,6 +16,60 @@ def rss_parser(
     """
     parses RSS XML and returns formatted strings or a JSON-ready list.
     """
+    
+    root = ET.fromstring(xml)
+    channel = root.find("channel")
+    if channel is None:   # if theres no channel, rss is broken or empty
+        return []
+    
+    if json:
+        pass
+    
+    output = []
+    title = html.unescape(channel.findtext("title", ""))
+    link = html.unescape(channel.findtext("link", ""))
+    desc = html.unescape(channel.findtext("description", ""))
+
+    output.append(f"Feed: {title}")
+    output.append(f"Link: {link}")
+    output.append(f"Description: {desc}")
+
+    all_items = channel.findall("item")
+    # if a limit is provided, slice the list
+    if limit is not None and limit > 0:
+        all_items = all_items[:limit]
+
+    for item in all_items:
+        output.append("")
+
+        title = item.findtext("title")
+        if title:
+            output.append(f"Title: {html.unescape(title)}")
+
+        author = item.findtext("author")
+        if author:
+            output.append(f"Author: {html.unescape(author)}")
+
+        pub_date = item.findtext("pubDate")
+        if pub_date:
+            output.append(f"Published: {html.unescape(pub_date)}")
+
+        link = item.findtext("link")
+        if link:
+            output.append(f"Link: {html.unescape(link)}")
+
+        categories = [html.unescape(c.text) for c in item.findall("category") if c.text]
+        if categories:
+            output.append(f"Categories: {', '.join(categories)}")
+
+        description = item.findtext("description")
+        if description:
+            output.append("") 
+            output.append(html.unescape(description))
+
+        return output
+        
+
 
 def main(argv: Optional[Sequence] = None):
     parser = ArgumentParser(
