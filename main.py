@@ -3,6 +3,7 @@ from typing import List, Optional, Sequence
 import requests
 import xml.etree.ElementTree as ET
 import html
+import json
 
 class UnhandledException(Exception):
     pass
@@ -22,8 +23,36 @@ def rss_parser(
     if channel is None:   # if theres no channel, rss is broken or empty
         return []
     
+    all_items = channel.findall("item")
+    # if a limit is provided, slice the list
+    if limit is not None and limit > 0:
+        all_items = all_items[:limit]
+    
     if json:
-        pass
+        data = {
+        "title": html.unescape(channel.findtext("title", "")),
+        "link": html.unescape(channel.findtext("link", "")),
+        "description": html.unescape(channel.findtext("description", "")),
+        "items": []
+        }
+
+        for item in all_items:
+            item_dict = {}
+        
+            # exact tag names from the rss spec as keys
+            fields = ["title", "author", "pubDate", "link", "category", "description"]
+            for field in fields:
+                val = item.findtext(field)
+                if val:
+                    item_dict[field] = html.unescape(val)
+        
+            data["items"].append(item_dict)
+
+        json_result = json.dumps(data, indent=2)
+        return [json_result]
+    
+
+    # --- CONSOLE OUTPUT HEADERS ---
     
     output = []
     title = html.unescape(channel.findtext("title", ""))
@@ -34,10 +63,6 @@ def rss_parser(
     output.append(f"Link: {link}")
     output.append(f"Description: {desc}")
 
-    all_items = channel.findall("item")
-    # if a limit is provided, slice the list
-    if limit is not None and limit > 0:
-        all_items = all_items[:limit]
 
     for item in all_items:
         output.append("")
