@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 import html
 import json
 
+
 class UnhandledException(Exception):
     pass
 
@@ -12,45 +13,59 @@ class UnhandledException(Exception):
 def rss_parser(
     xml: str,
     limit: Optional[int] = None,
-    json: bool = False,
+    json_format: bool = False,
 ) -> List[str]:
     """
-    parses RSS XML and returns formatted strings or a JSON-ready list.
+    RSS parser
+
+    Args:
+        xml: XML document as a string.
+        limit: Number of the news to return. if None, returns all news.
+        json: If True, format output as JSON.
+
+    Returns:
+        List of strings.
+
+    Examples:
+        >>> xml = ('<rss><channel><title>RSS Channel</title><link>https://some.rss.com</link>'
+        ...        '<description>RSS Channel</description></channel></rss>')
+        >>> rss_parser(xml)
+        ['Feed: RSS Channel', 'Link: https://some.rss.com', 'Description: RSS Channel']
+        >>> print("\\n".join(rss_parser(xml)))
+        Feed: RSS Channel
+        Link: https://some.rss.com
+        Description: RSS Channel
     """
-    
     root = ET.fromstring(xml)
     channel = root.find("channel")
     if channel is None:   # if theres no channel, rss is broken or empty
         return []
-    
-    all_items = channel.findall("item")
-    # if a limit is provided, slice the list
+
+    all_items = channel.findall("item")  # if a limit is provided, slice the list
     if limit is not None and limit > 0:
         all_items = all_items[:limit]
-    
-    if json:
+        
+    if json_format:
         data = {
-        "title": html.unescape(channel.findtext("title", "")),
-        "link": html.unescape(channel.findtext("link", "")),
-        "description": html.unescape(channel.findtext("description", "")),
-        "items": []
+            "title": html.unescape(channel.findtext("title", "")),
+            "link": html.unescape(channel.findtext("link", "")),
+            "description": html.unescape(channel.findtext("description", "")),
+            "items": []
         }
 
         for item in all_items:
             item_dict = {}
-        
+
             # exact tag names from the rss spec as keys
             fields = ["title", "author", "pubDate", "link", "category", "description"]
-            for field in fields:
+            for field in fields:  
                 val = item.findtext(field)
                 if val:
                     item_dict[field] = html.unescape(val)
-        
             data["items"].append(item_dict)
 
         json_result = json.dumps(data, indent=2)
         return [json_result]
-    
 
     # --- CONSOLE OUTPUT HEADERS ---
     output = []
@@ -75,9 +90,8 @@ def rss_parser(
     if lang:
         output.append(f"Language: {html.unescape(lang)}")
     
-    # categories for channel, comma separated
     ch_cats = [html.unescape(c.text) for c in channel.findall("category") if c.text]
-    if ch_cats:
+    if ch_cats:  # categories for channel, comma separated
         output.append(f"Categories: {', '.join(ch_cats)}")
     
     editor = channel.findtext("managingEditor")
@@ -87,7 +101,6 @@ def rss_parser(
     feed_desc = channel.findtext("description")
     if feed_desc:
         output.append(f"Description: {html.unescape(feed_desc)}")
-
 
     for item in all_items:
         output.append("")
@@ -120,7 +133,6 @@ def rss_parser(
     return output
         
 
-
 def main(argv: Optional[Sequence] = None):
     parser = ArgumentParser(
         prog="PyStream",
@@ -135,11 +147,30 @@ def main(argv: Optional[Sequence] = None):
     )
 
     args = parser.parse_args(argv)
-    xml = requests.get(args.source).text
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                      'AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/91.0.4472.124 Safari/537.36'
+    }
+
     try:
-        print("\n".join(rss_parser(xml, args.limit, args.json)))
+        response = requests.get(args.source, headers=headers)
+
+        # check if the request actually worked before parsing
+        if response.status_code != 200:
+            raise UnhandledException(f"HTTP Error {response.status_code}")
+
+        xml_content = response.text
+
+        results = rss_parser(xml_content, args.limit, args.json)
+
+        if results:
+            print("\n".join(results))
+
         return 0
     except Exception as e:
+        # this catches the ParseError or connection errors and wraps them
         raise UnhandledException(e)
 
 
