@@ -4,11 +4,18 @@ import requests
 import xml.etree.ElementTree as ET
 import html
 import json
+import re
 
 
 class UnhandledException(Exception):
     pass
 
+def clean_html(raw_html: str) -> str:
+    """Removes HTML tags and cleans up whitespace."""
+    if not raw_html:
+        return ""
+    clean_text = re.sub(r'<[^>]+>', '', raw_html)
+    return clean_text.strip()
 
 def rss_parser(
     xml: str,
@@ -127,8 +134,9 @@ def rss_parser(
 
         desc = item.findtext("description")
         if desc:
+            cleaned_desc = clean_html(html.unescape(desc))
             output.append("") 
-            output.append(html.unescape(desc))
+            output.append(html.unescape(cleaned_desc))
 
     return output
         
@@ -155,8 +163,13 @@ def main(argv: Optional[Sequence] = None):
     }
 
     try:
-        response = requests.get(args.source, headers=headers)
+        response = requests.get(args.source, headers=headers, timeout=10)
 
+        if response.status_code == 404:
+            print(f"Error: The URL {args.source} was not found (404).")
+            return 1
+        response.raise_for_status()
+        
         # check if the request actually worked before parsing
         if response.status_code != 200:
             raise UnhandledException(f"HTTP Error {response.status_code}")
