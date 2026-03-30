@@ -53,15 +53,40 @@ def rss_parser(
     
 
     # --- CONSOLE OUTPUT HEADERS ---
-    
     output = []
-    title = html.unescape(channel.findtext("title", ""))
-    link = html.unescape(channel.findtext("link", ""))
-    desc = html.unescape(channel.findtext("description", ""))
 
-    output.append(f"Feed: {title}")
-    output.append(f"Link: {link}")
-    output.append(f"Description: {desc}")
+    feed_title = channel.findtext("title")
+    if feed_title:
+        output.append(f"Feed: {html.unescape(feed_title)}")
+
+    feed_link = channel.findtext("link")
+    if feed_link:
+        output.append(f"Link: {html.unescape(feed_link)}")
+
+    lbd = channel.findtext("lastBuildDate")
+    if lbd:
+        output.append(f"Last Build Date: {html.unescape(lbd)}")
+
+    pd = channel.findtext("pubDate")
+    if pd:
+        output.append(f"Publish Date: {html.unescape(pd)}")
+
+    lang = channel.findtext("language")
+    if lang:
+        output.append(f"Language: {html.unescape(lang)}")
+    
+    # categories for channel, comma separated
+    ch_cats = [html.unescape(c.text) for c in channel.findall("category") if c.text]
+    if ch_cats:
+        output.append(f"Categories: {', '.join(ch_cats)}")
+    
+    editor = channel.findtext("managingEditor")
+    if editor:
+        output.append(f"Editor: {html.unescape(editor)}")
+    
+    feed_desc = channel.findtext("description")
+    if feed_desc:
+        output.append(f"Description: {html.unescape(feed_desc)}")
 
 
     for item in all_items:
@@ -87,12 +112,12 @@ def rss_parser(
         if categories:
             output.append(f"Categories: {', '.join(categories)}")
 
-        description = item.findtext("description")
-        if description:
+        desc = item.findtext("description")
+        if desc:
             output.append("") 
-            output.append(html.unescape(description))
+            output.append(html.unescape(desc))
 
-        return output
+    return output
         
 
 
